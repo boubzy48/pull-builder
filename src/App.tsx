@@ -1,7 +1,47 @@
 import { useState } from "react";
 import "./App.css";
 
-function Input({ label, id, value, onchange }) {
+// MODELS
+const modelInput = {
+  sampleWidth: 0,
+  stitchNumber: 0,
+  humanWidth: 0,
+  humanHeight: 0,
+};
+
+const modelOutput = {
+  pullWidth: 0,
+  pullHeight: {
+    firstStep: 0,
+    secondStep: 0,
+  },
+};
+
+// CALCULATION FUNCTIONS
+function calculatePullWidth(sampleWidth, stitchNumber, humanWidth) {
+  if (sampleWidth > 0 && stitchNumber > 0 && humanWidth > 0) {
+    const stichesForTenCm = Math.round((stitchNumber * 10) / sampleWidth);
+    const pullWidth = (humanWidth * stichesForTenCm) / 10;
+
+    return Math.round(pullWidth);
+  }
+
+  return 0;
+}
+
+function calculatePullHeight(humanHeight) {
+  if (humanHeight > 0) {
+    const firstStep = Math.round(humanHeight / 1.6);
+    const secondStep = Math.round(humanHeight / 3);
+
+    return { firstStep, secondStep };
+  }
+
+  return { firstStep: 0, secondStep: 0 };
+}
+
+// COMPONENTS
+function Input({ label, id, value, onChange }) {
   return (
     <div className="input">
       <label htmlFor="width">{label}</label>
@@ -10,87 +50,62 @@ function Input({ label, id, value, onchange }) {
         id={id}
         name={id}
         value={value}
-        onChange={onchange}
+        onChange={onChange}
       />
     </div>
   );
 }
 
-function WidthCalculation({
-  sampleWidth,
-  stitchNumber,
-  humanWidth,
-  handleSampleWidthChange,
-  handleStitchNumberChange,
-  handleHumanWidthChange,
-}) {
+function WidthInputs({ state, onStateChange }) {
   return (
     <>
       <Input
         label="Your sample width (cm):"
         id="sampleWidth"
-        value={sampleWidth}
-        onchange={handleSampleWidthChange}
+        value={state.sampleWidth}
+        onChange={(e) =>
+          onStateChange("sampleWidth", parseFloat(e.target.value))
+        }
       />
       <Input
         label="Number of stitches:"
         id="sampleStitches"
-        value={stitchNumber}
-        onchange={handleStitchNumberChange}
+        value={state.stitchNumber}
+        onChange={(e) =>
+          onStateChange("stitchNumber", parseFloat(e.target.value))
+        }
       />
       <Input
         label="Your width (cm):"
         id="humanWidth"
-        value={humanWidth}
-        onchange={handleHumanWidthChange}
+        value={state.humanWidth}
+        onChange={(e) =>
+          onStateChange("humanWidth", parseFloat(e.target.value))
+        }
       />
     </>
   );
 }
 
-function HeightCalculation({ humanHeight, handleHumanHeightChange }) {
+function HeightInputs({ state, onStateChange }) {
   return (
     <>
       <Input
         label="Your height (cm):"
         id="humanHeight"
-        value={humanHeight}
-        onchange={handleHumanHeightChange}
+        value={state.humanHeight}
+        onChange={(e) =>
+          onStateChange("humanHeight", parseFloat(e.target.value))
+        }
       />
     </>
   );
 }
 
-function Calculation({ calculatePullWidth, calculatePullHeight }) {
-  const [sampleWidth, setSampleWidth] = useState("");
-  const [stitchNumber, setStitchNumber] = useState("");
-  const [humanWidth, setHumanWidth] = useState("");
-  const [humanHeight, setHumanHeight] = useState("");
-
-  function handleSampleWidthChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = Number(e.target.value);
-    setSampleWidth(value);
-  }
-
-  function handleStitchNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = Number(e.target.value);
-    setStitchNumber(value);
-  }
-
-  function handleHumanWidthChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = Number(e.target.value);
-    setHumanWidth(value);
-  }
-
-  function handleHumanHeightChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = Number(e.target.value);
-    setHumanHeight(value);
-  }
-
+function Form({ inputState, onStateChange, onSubmit }) {
   function handleSubmit(e) {
     e.preventDefault();
-    calculatePullWidth(sampleWidth, stitchNumber, humanWidth);
-    calculatePullHeight(humanHeight);
+    onSubmit();
   }
 
   return (
@@ -98,18 +113,8 @@ function Calculation({ calculatePullWidth, calculatePullHeight }) {
       <section>
         <h1>Pull Builder</h1>
         <form>
-          <WidthCalculation
-            sampleWidth={sampleWidth}
-            stitchNumber={stitchNumber}
-            humanWidth={humanWidth}
-            handleSampleWidthChange={handleSampleWidthChange}
-            handleStitchNumberChange={handleStitchNumberChange}
-            handleHumanWidthChange={handleHumanWidthChange}
-          />
-          <HeightCalculation
-            humanHeight={humanHeight}
-            handleHumanHeightChange={handleHumanHeightChange}
-          />
+          <WidthInputs state={inputState} onStateChange={onStateChange} />
+          <HeightInputs state={inputState} onStateChange={onStateChange} />
           <button type="submit" onClick={handleSubmit}>
             Submit
           </button>
@@ -119,7 +124,9 @@ function Calculation({ calculatePullWidth, calculatePullHeight }) {
   );
 }
 
-function Result({ pullWidth, pullHeight }) {
+function Result({ outputState }) {
+  const { pullWidth, pullHeight } = outputState;
+
   return (
     <>
       <section>
@@ -138,32 +145,34 @@ function Result({ pullWidth, pullHeight }) {
 }
 
 function PullBuilder() {
-  const [pullWidth, setPullWidth] = useState(0);
-  const [pullHeight, setPullHeight] = useState({ firstStep: 0, secondStep: 0 });
+  const [inputState, setInputState] = useState(modelInput);
+  const [outputState, setOutputState] = useState(modelOutput);
 
-  function calculatePullWidth(sampleWidth, stitchNumber, humanWidth) {
-    if (sampleWidth > 0 && stitchNumber > 0 && humanWidth > 0) {
-      const stichesForTenCm = Math.round((stitchNumber * 10) / sampleWidth);
-      const pullWidth = (humanWidth * stichesForTenCm) / 10;
-      setPullWidth(Math.round(pullWidth));
-    }
-  }
+  const handleStateChange = (key, value) => {
+    setInputState((prevState) => ({
+      ...prevState,
+      [key]: value,
+    }));
+  };
 
-  function calculatePullHeight(humanHeight) {
-    if (humanHeight > 0) {
-      const firstStep = Math.round(humanHeight / 1.6);
-      const secondStep = Math.round(humanHeight / 3);
+  const handleSubmit = () => {
+    const { sampleWidth, stitchNumber, humanWidth, humanHeight } = inputState;
+    const pullWidth = calculatePullWidth(sampleWidth, stitchNumber, humanWidth);
+    const pullHeight = calculatePullHeight(humanHeight);
+    setOutputState({
+      pullWidth,
+      pullHeight,
+    });
+  };
 
-      setPullHeight({ firstStep, secondStep });
-    }
-  }
   return (
     <>
-      <Calculation
-        calculatePullWidth={calculatePullWidth}
-        calculatePullHeight={calculatePullHeight}
+      <Form
+        inputState={inputState}
+        onStateChange={handleStateChange}
+        onSubmit={handleSubmit}
       />
-      <Result pullWidth={pullWidth} pullHeight={pullHeight} />
+      <Result outputState={outputState} />
     </>
   );
 }
